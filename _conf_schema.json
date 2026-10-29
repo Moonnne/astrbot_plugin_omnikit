@@ -1,0 +1,84 @@
+{
+  "enabled": {
+    "description": "启用万能工具箱",
+    "type": "bool",
+    "default": true
+  },
+  "alphabet": {
+    "description": "默认鲸言加密词",
+    "type": "string",
+    "default": "嗡呜隆嗷",
+    "hint": "恰好四个互不重复的可见字符。"
+  },
+  "presets": {
+    "description": "鲸言预设",
+    "type": "list",
+    "default": [
+      "兽音=嗷呜啊~",
+      "喵音=喵呜啊~"
+    ],
+    "hint": "每项格式：两字名称=四字加密词。仅支持兽音四字符算法。保存后重载生效。"
+  },
+  "wait_seconds": {
+    "description": "等待下一张图片（秒）",
+    "type": "int",
+    "default": 60,
+    "hint": "10–300 秒，仅等待发起者在同一会话发送图片。"
+  },
+  "max_rounds": {
+    "description": "最大混淆次数",
+    "type": "int",
+    "default": 10,
+    "hint": "1–100。加混和解混须使用相同次数。"
+  },
+  "max_text": {
+    "description": "鲸言原文字符上限",
+    "type": "int",
+    "default": 1000
+  },
+  "max_output": {
+    "description": "鲸言消息字符预算",
+    "type": "int",
+    "default": 12000,
+    "hint": "按平台实际消息限制调低，密文不自动分段。"
+  },
+  "max_bytes": {
+    "description": "图片输入及输出字节上限",
+    "type": "int",
+    "default": 20971520,
+    "hint": "默认20 MiB，最高50 MiB；平台可能有更低限制。"
+  },
+  "max_pixels": {
+    "description": "图片像素总数上限",
+    "type": "int",
+    "default": 8000000,
+    "hint": "最高800万，超限拒绝、不自动缩放。"
+  },
+  "max_side": {
+    "description": "图片单边像素上限",
+    "type": "int",
+    "default": 4000
+  },
+  "workers": {
+    "description": "图片并发数",
+    "type": "int",
+    "default": 2,
+    "hint": "1–4，较大图片建议1，降低内存峰值。"
+  },
+  "queue_size": {
+    "description": "图片排队数",
+    "type": "int",
+    "default": 8
+  },
+  "task_seconds": {
+    "description": "图片任务超时（秒）",
+    "type": "int",
+    "default": 60,
+    "hint": "包括排队、下载、计算、发送。线程停止前保留并发槽。"
+  },
+  "pending_limit": {
+    "description": "最大等图人数",
+    "type": "int",
+    "default": 512
+  }
+}

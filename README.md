@@ -1,14 +1,58 @@
-# astrbot-plugin-helloworld
+# Astrbot万能工具箱
 
-AstrBot 插件模板 / A template plugin for AstrBot plugin feature
+AstrBot 指令工具组，首版提供鲸言四字符编解码和鲸绘图片混淆。支持 OneBot v11、QQ 官方 WebSocket / Webhook，通过宿主标准消息接口兼容更多平台。
 
-> [!NOTE]
-> This repo is just a template of [AstrBot](https://github.com/AstrBotDevs/AstrBot) Plugin.
-> 
-> [AstrBot](https://github.com/AstrBotDevs/AstrBot) is an agentic assistant for both personal and group conversations. It can be deployed across dozens of mainstream instant messaging platforms, including QQ, Telegram, Feishu, DingTalk, Slack, LINE, Discord, Matrix, etc. In addition, it provides a reliable and extensible conversational AI infrastructure for individuals, developers, and teams. Whether you need a personal AI companion, an intelligent customer support agent, an automation assistant, or an enterprise knowledge base, AstrBot enables you to quickly build AI applications directly within your existing messaging workflows.
+只由指令启动，不调用 LLM。需要 AstrBot >=4.29.3,<5；使用宿主已有 Pillow、aiohttp 和 Python 标准库，**没有新增第三方运行依赖**，无需额外安装 requirements。
 
-# Supports
+## 鲸言
 
-- [AstrBot Repo](https://github.com/AstrBotDevs/AstrBot)
-- [AstrBot Plugin Development Docs (Chinese)](https://docs.astrbot.app/dev/star/plugin-new.html)
-- [AstrBot Plugin Development Docs (English)](https://docs.astrbot.app/en/dev/star/plugin-new.html)
+| 命令 | 作用 |
+| --- | --- |
+| `/鲸言` | 帮助与预设 |
+| `/鲸言加密 你好` | 默认“嗡呜隆嗷”字表 |
+| `/鲸言解密 密文` | 从完整密文首尾恢复字表 |
+| `/鲸言加密 我是肥鱼 你好` | 自定义四字符有序字表 |
+| `/鲸言解密 我是肥鱼 密文` | 按指定字表校验并解码 |
+| `/鲸言加密 兽音 你好` | 使用“兽音”预设 |
+| `/鲸言解密 兽音 密文` | 使用“兽音”预设 |
+| `/鲸言加密 -- hello world` | 默认字表下包含空格的正文 |
+
+首项之后还有正文时，首项按参数解释：两个字符为预设名，四个互不重复的可见字符为字表；其他长度报错。只有一个文本项时就是正文。默认字表下的多词正文用 `--`，避免将正文首词当成参数。内部空格和换行保留，命令及正文两端的空白可能由宿主裁剪。
+
+字符按 Unicode 码点计数，单码点 emoji 可用，组合 emoji 可能不止一个字符。不能使用重复、空白或控制字符。不支持五至八字符字表。
+
+默认预设：兽音=嗷呜啊~，喵音=喵呜啊~。可在插件设置页面编辑，格式为 `两字名称=四字加密词`，保存并重载生效。自动解码不遍历预设，而是读取密文首尾字表；不支持缺失首尾的猜测恢复，不支持佛曰。
+
+算法兼容所核对的[兽音格式](https://github.com/sgdrg15rdg/beast_js/blob/main/beast.js)，包括 UTF-16 代理对。此功能是趣味编码，不是保密加密；旧格式没有校验和，不能检测所有损坏。
+
+肥鱼别名：`/肥鱼嘀咕`（帮助）、`/肥鱼说话`（加密）、`/肥鱼翻译`（解密）。
+
+## 鲸绘
+
+| 命令 | 作用 |
+| --- | --- |
+| `/鲸绘` | 帮助 |
+| `/鲸绘加混 [图片]` | 加混一次 |
+| `/鲸绘解混 [图片]` | 解混一次 |
+| `/鲸绘加混 3 [图片]` | 加混三次 |
+| `/鲸绘解混 3 [图片]` | 解混三次 |
+| `/鲸绘解混 3` | 等待本人下一张图片 |
+| `/鲸绘取消` | 取消等图，不中断已开始的处理 |
+
+同条消息附图优先，图片在文字前后均可。未附图时默认等 **60 秒**；只领取同平台、同机器人、同会话、同用户的下一张图片。普通文字不会延时，其他用户的图不会被处理；重复图片命令替换旧等待。超时静默失效，需要重新发命令；重载清空等待。一次仅支持一张静态图片。
+
+QQ 官方群聊若不投递普通图片消息，请 **@机器人并附图**。平台没有交给宿主的消息无法抓取。
+
+算法为[小番茄图片混淆网站](https://xiaofanqiehunxiao.com/)的 Gilbert 曲线路径循环像素置换。多次变换合并计算，解混需使用相同次数。输出 **PNG**，不主动缩放、不重复 JPEG 压缩，保留解码后的 RGBA 像素。网站导出 JPEG，因此跨网站恢复不保证像素无损。平台转码、缩放、裁剪、图片旋转或错误次数会影响还原。
+
+默认限制：20 MiB 输入/输出、800万像素、单边4000、最多10次、并发2、排队8。超限提示错误，不自动缩图。透明通道保留；EXIF 朝向在处理前规范化，不承诺保留原文件元数据。若平台有更严格的消息或附件限制，请在设置页调低预算。
+
+肥鱼别名：`/肥鱼拌饭`（加混）、`/肥鱼摆盘`（解混）。
+
+## 开发与验证
+
+`main.py` 只注册命令和管理生命周期；`core/gateway.py` 负责路由和等图状态；`core/text.py`、`core/image.py` 是独立算法；`core/adapter/astrbot.py` 封装宿主接口。无需数据库、模型提供商或图片网站在线服务，运行时不访问参考网站。
+
+所有运行文件采用 UTF-8 / CRLF。测试与兼容边界见 [docs/TESTING.md](docs/TESTING.md)，实现设计见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，图片原理见 [docs/IMAGE_RESEARCH.md](docs/IMAGE_RESEARCH.md)。
+
+当前已验证本地 AstrBot 4.29.3 的三协议消息结构和真实命令管线，发送端隔离模拟；**真实 QQ 账号联调与平台传图后的压缩行为尚未验证**。其他平台复用通用接口，尚未逐平台验收。
