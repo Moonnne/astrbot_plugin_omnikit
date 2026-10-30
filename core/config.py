@@ -43,17 +43,17 @@ class Settings:
         ):
             value = data.get(key, getattr(cls, key))
             if type(value) is not int or not low <= value <= high:
-                raise ValueError(f"{key} 必须为 {low}–{high} 的整数。")
+                raise ValueError(f"{key} 必须为 {low}–{high} 的整数")
             values[key] = value
         if type(data.get("enabled", True)) is not bool:
-            raise ValueError("enabled 必须是布尔值。")
+            raise ValueError("enabled 必须是布尔值")
         presets = {}
         entries = data.get("presets", ["兽音=嗷呜啊~", "喵音=喵呜啊~"])
         if not isinstance(entries, list) or len(entries) > 64:
-            raise ValueError("预设必须为不超过 64 项的列表。")
+            raise ValueError("预设必须为不超过 64 项的列表")
         for entry in entries:
             if not isinstance(entry, str) or "=" not in entry:
-                raise ValueError("预设格式为 两字名称=四字加密词。")
+                raise ValueError("预设格式为 两字名称=四字加密词")
             name, alphabet = entry.split("=", 1)
             if (
                 len(name) != 2
@@ -62,7 +62,7 @@ class Settings:
                     c.isspace() or unicodedata.category(c).startswith("C") for c in name
                 )
             ):
-                raise ValueError("预设名称须为两个可见字符，且不能重复。")
+                raise ValueError("预设名称须为两个可见字符，且不能重复")
             presets[name] = validate_alphabet(alphabet)
         return cls(
             enabled=data.get("enabled", True),

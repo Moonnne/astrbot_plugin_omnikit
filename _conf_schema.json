@@ -8,7 +8,7 @@
     "description": "默认鲸言加密词",
     "type": "string",
     "default": "嗡呜隆嗷",
-    "hint": "恰好四个互不重复的可见字符。"
+    "hint": "四个互不重复的可见字符。"
   },
   "presets": {
     "description": "鲸言预设",

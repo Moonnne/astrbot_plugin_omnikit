@@ -96,10 +96,10 @@ class Gateway:
                 removed = self.prompts.pop(key, None) or removed
                 await self.api.text(
                     event,
-                    "本鲸已取消等图。" if removed else "本鲸当前没有在等你的图片。",
+                    "已取消等图。" if removed else "本鲸没在等你的图片",
                 )
             elif key in self.busy:
-                await self.api.text(event, "本鲸正在处理你的图片，请稍等。")
+                await self.api.text(event, "本鲸正在处理你的图片，急什么？！")
             else:
                 self.busy.add(key)
                 try:
@@ -109,14 +109,14 @@ class Gateway:
         except UserError as exc:
             await self.error(event, str(exc))
         except TimeoutError:
-            await self.error(event, "本鲸处理超时了，请稍后使用较小的图片重试。")
+            await self.error(event, "本鲸处理超时了，稍后用较小的图片再试吧")
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             # Never log message contents, media URLs or platform credentials.
             self.log.warning("OmniKit operation failed: %s", type(exc).__name__)
             await self.error(
-                event, "本鲸没能完成操作，附件可能失效或平台发送失败，请重新发送。"
+                event, "本鲸没能完成操作，附件可能失效或平台发送失败，请重新发送"
             )
 
     async def error(self, event, message: str):
@@ -127,22 +127,22 @@ class Gateway:
 
     def text_action(self, action, args):
         if len(args) > self.cfg.max_output + 32:
-            raise UserError("输入文字过长。")
+            raise UserError("输入文字过长")
         alphabet, body = parse_text(args, self.cfg.presets)
         if action == "encode":
             if len(body) > self.cfg.max_text:
-                raise UserError(f"原文最多 {self.cfg.max_text} 字符。")
+                raise UserError(f"原文最多 {self.cfg.max_text} 字符")
             result = encode(body, alphabet or self.cfg.alphabet)
         else:
             result = decode(body, alphabet)
         if len(result) > self.cfg.max_output:
-            raise UserError("结果超过消息长度预算，请缩短原文后重试。")
+            raise UserError("结果超过消息长度预算，请缩短原文后重试")
         return result
 
     async def image_action(self, event, action, args, key):
         pictures = self.api.images(event)
         if len(pictures) > 1:
-            raise UserError("一次只拌一碗饭：请只发送一张图片。")
+            raise UserError("本鲸一次只拌一碗饭，只能发送一张图片哦")
         if action == "follow":
             request = self.pending.pop(key, None)
             if request is None or request.deadline <= monotonic():
@@ -150,17 +150,17 @@ class Gateway:
             reverse, rounds = request.reverse, request.rounds
         else:
             if args and not re.fullmatch(r"[0-9]{1,3}", args):
-                raise UserError("次数须为正整数，例如 /鲸绘加混 3 [图片]。")
+                raise UserError("操作次数须为正整数，例如 /鲸绘加混 3 [图片]")
             rounds = int(args) if args else 1
             if not 1 <= rounds <= self.cfg.max_rounds:
-                raise UserError(f"次数须在 1–{self.cfg.max_rounds} 之间。")
+                raise UserError(f"操作次数须在 1–{self.cfg.max_rounds} 之间")
             reverse = action == "restore"
             self.pending.pop(key, None)
         if not pictures:
             if len(self.pending) + len(self.prompts) >= self.cfg.pending_limit:
-                raise UserError("本鲸等图的饭碗满了，请稍后再试。")
+                raise UserError("本鲸等图的饭碗满了，稍后再来吧")
             hint = (
-                "；QQ 官方群聊请 @机器人并附图"
+                ""
                 if event.get_platform_name() in {"qq_official", "qq_official_webhook"}
                 else ""
             )
@@ -169,7 +169,9 @@ class Gateway:
             try:
                 await self.api.text(
                     event,
-                    f"本鲸准备好{'摆盘' if reverse else '拌饭'}了！请在 {self.cfg.wait_seconds} 秒内于本会话发送一张图片{hint}。/鲸绘取消 可取消。",
+                    f"本鲸准备好{'摆盘' if reverse else '拌饭'}了！\n"
+                    f"请在 {self.cfg.wait_seconds} 秒内于本会话发送一张图片{hint}\n"
+                    f"超时了就不管你了！使用 /鲸绘取消 可取消本次操作",
                 )
                 if not self.closed and self.prompts.get(key) is token:
                     self.pending[key] = Pending(
@@ -218,23 +220,34 @@ class Gateway:
 
     def text_help(self):
         return (
-            f"本鲸说两句 · 鲸言\n/鲸言加密 正文\n/鲸言解密 密文\n"
-            f"/鲸言加密 我是肥鱼 正文\n/鲸言解密 我是肥鱼 密文\n"
-            f"/鲸言加密 兽音 正文\n/鲸言加密 -- hello world\n"
-            f"默认加密词：{self.cfg.alphabet}；预设：{'、'.join(self.cfg.presets) or '无'}。\n"
-            "加密词仅支持四个互不重复的可见字符，两字参数表示预设。\n"
-            "无参数解密从完整密文首尾推导字表，不遍历预设。请勿删改首尾。\n"
-            "肥鱼别名：肥鱼嘀咕、肥鱼说话、肥鱼翻译。\n"
-            "这是趣味编码，不是保密加密；旧兽音格式不能检测所有损坏。"
+            f"本鲸说两句 · 鲸言\n"
+            f"使用方式："
+            f"/鲸言加密 [正文] 或 /肥鱼嘀咕 *\n"
+            f"/鲸言解密 [密文] 或 /肥鱼翻译 *\n"
+            f"可用参数："
+            f"/鲸言加密 [四字密码] [正文]\n"
+            f"/鲸言解密 [四字密码] [密文]\n"
+            f"/鲸言加密 兽音 正文\n"
+            f"/鲸言加密 -- hello world\n"
+            f"默认加密词：{self.cfg.alphabet}"
+            f"可用预设：{'、'.join(self.cfg.presets) or '无'}\n\n"
+            f"加密词仅支持四个互不重复的可见字符，可使用预设\n"
+            f"无参数解密时将尝试从密文推导字表\n"
+            f"⚠本功能仅为趣味功能，不具备密码学安全性！"
         )
 
     def image_help(self):
         return (
-            "肥鱼拌饭机 · 鲸绘\n/鲸绘加混 [次数] [图片]\n/鲸绘解混 [次数] [图片]\n"
-            f"默认一次，最多 {self.cfg.max_rounds} 次；未附图时等待 {self.cfg.wait_seconds} 秒。\n"
-            "/鲸绘取消：取消等图。肥鱼别名：肥鱼拌饭、肥鱼摆盘。\n"
-            "输出无损 PNG，请保留原图尺寸，避免平台压缩、裁剪或缩放。\n"
-            "解混次数应与加混一致；次数错误无法自动识别。仅支持静态图片。"
+            f"肥鱼拌饭机 · 鲸绘\n"
+            f"使用方式："
+            f"/鲸绘加混 [操作次数] [图片] 或 /肥鱼拌饭 *\n"
+            f"/鲸绘解混 [操作次数] [图片] 或 /肥鱼摆盘 *\n"
+            f"/鲸绘取消 用于取消操作\n\n"
+            f"默认单次操作，最多连续操作 {self.cfg.max_rounds} 次，未附图时等待 {self.cfg.wait_seconds} 秒\n"
+            f"输出为PNG，请保留原图尺寸，避免平台压缩、裁剪或缩放\n"
+            f"加混和解混操作都可用来进行混淆，两者互为逆向操作，使用解混进行混淆的图片需要加混才能恢复"
+            f"混淆操作可进行多次操作，如果如果原图进行了多次混淆操作，则需要进行同等次数的解混操作"
+            f"⚠本功能仅为趣味功能，参考小番茄图片混淆的实现，不具备密码学安全性！仅支持静态图片"
         )
 
     async def close(self):

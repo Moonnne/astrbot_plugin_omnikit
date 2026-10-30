@@ -45,7 +45,7 @@ def curve(width: int, height: int):
             )
 
     if width < 1 or height < 1:
-        raise UserError("图片尺寸必须为正数。")
+        raise UserError("图片尺寸必须为正数")
     yield from (
         walk(0, 0, width, 0, 0, height)
         if width >= height
@@ -60,12 +60,12 @@ def transform(
 
     def check():
         if stop.is_set():
-            raise UserError("图片处理已取消或超时。")
+            raise UserError("图片处理已取消或超时")
 
     if not 1 <= rounds <= settings.max_rounds:
-        raise UserError("混淆次数超出范围。")
+        raise UserError("混淆次数超出范围")
     if len(data) > settings.max_bytes:
-        raise UserError("图片文件过大。")
+        raise UserError("图片文件过大")
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
@@ -73,10 +73,10 @@ def transform(
                 w, h = source.size
                 if w * h > settings.max_pixels or max(w, h) > settings.max_side:
                     raise UserError(
-                        "图片尺寸超限，请提供原尺寸较小的图片；本鲸不会自动缩图。"
+                        "图片尺寸超限，请提供原尺寸较小的图片，本鲸才不会给你缩图呢"
                     )
                 if getattr(source, "n_frames", 1) != 1:
-                    raise UserError("首版只处理静态图片，请先转换动画或多页图片。")
+                    raise UserError("当前仅支持静态图片，请先转换动画或多页图片")
                 check()
                 rgba = ImageOps.exif_transpose(source).convert("RGBA")
         w, h = rgba.size
@@ -84,7 +84,7 @@ def transform(
         pixels.frombytes(rgba.tobytes())
         rgba.close()
         if pixels.itemsize != 4:
-            raise UserError("当前系统不支持四字节像素数组。")
+            raise UserError("当前系统不支持四字节像素数组")
         n = w * h
         path = array("I")
         for i, index in enumerate(curve(w, h)):
@@ -106,7 +106,7 @@ def transform(
         check()
         value = stream.getvalue()
         if len(value) > settings.max_bytes:
-            raise UserError("无损结果文件超限，请使用尺寸较小的原图。")
+            raise UserError("无损结果文件超限，请使用尺寸较小的原图")
         return value
     except (
         UnidentifiedImageError,
@@ -114,4 +114,4 @@ def transform(
         Image.DecompressionBombWarning,
         Image.DecompressionBombError,
     ) as exc:
-        raise UserError("无法读取这张图片，文件可能损坏或尺寸过大。") from exc
+        raise UserError("无法读取这张图片，文件可能损坏或尺寸过大") from exc
