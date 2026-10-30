@@ -156,6 +156,36 @@ async def test_errors_fallback_health_and_cycle_rejection(binding, monkeypatch):
         await post.get_audio("test")
 
 
+async def test_health_check_matches_host_probe(binding, tmp_path, monkeypatch):
+    bound, instances = binding
+    source = instances["source"]
+    original = tmp_path / "source.wav"
+    original.write_bytes(b"audio")
+    source.get_audio.return_value = str(original)
+    await TTSProvider.test(source)
+    host_text = source.get_audio.call_args.args[0]
+    original.write_bytes(b"audio")
+
+    async def synthesize(text):
+        if text != host_text:
+            raise RuntimeError(
+                "音频生成失败: No audio was received. "
+                "Please verify that your parameters are correct."
+            )
+        return str(original)
+
+    source.get_audio.side_effect = synthesize
+    output = tmp_path / "processed.wav"
+    output.write_bytes(b"processed audio")
+    process = AsyncMock(return_value=str(output))
+    monkeypatch.setattr(bound.service, "process", process)
+    post = provider(**{"音频预设": next(iter(BUILTINS))})
+    await post.test()
+    source.get_audio.assert_awaited_with(host_text)
+    process.assert_awaited_once()
+    assert original.is_file()
+
+
 async def test_host_provider_manager_loads_multiple_instances(binding):
     bound, sources = binding
     manager = ProviderManager(

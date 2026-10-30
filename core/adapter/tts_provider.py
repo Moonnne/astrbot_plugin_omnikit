@@ -163,7 +163,7 @@ class OmniTTS(TTSProvider):
             self.jobs.discard(task)
 
     async def test(self):
-        output = await self.audio("你好，这是语音后处理测试。", strict=True)
+        output = await self.audio("hi", strict=True)
         if not Path(output).is_file() or Path(output).stat().st_size == 0:
             raise ValueError("TTS 没有生成有效的音频文件")
 
