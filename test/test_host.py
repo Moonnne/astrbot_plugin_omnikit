@@ -155,7 +155,7 @@ async def test_prefix_plain_chat_and_disabled_session(plugin):
     await dispatch(instance, cfg, plain)
     assert not plain.send.called and not instance.gateway.pending
     cfg["wake_prefix"] = ["!"]
-    message = event("!肥鱼说话 我是肥鱼 你好", mid="2")
+    message = event("!肥鱼嘀咕 我是肥鱼 你好", mid="2")
     await dispatch(instance, cfg, message)
     assert decode(message.send.call_args.args[0].chain[0].text) == "你好"
     SessionPluginManager.is_plugin_enabled_for_session.return_value = False

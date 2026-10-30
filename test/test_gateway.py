@@ -57,6 +57,24 @@ def gateway(**settings):
     return Gateway(replace(Settings(), **settings), api, logging.getLogger("test"))
 
 
+async def test_independent_switches():
+    text_off = gateway(text_enabled=False)
+    blocked = Event("鲸言加密 你好")
+    await text_off.handle(blocked, "encode")
+    assert blocked.stopped and not blocked.llm
+    assert "已关闭" in text_off.api.text.call_args.args[1]
+    await text_off.handle(Event("鲸绘加混", mid="2"), "scramble")
+    assert text_off.pending
+    await text_off.close()
+    image_off = gateway(image_enabled=False)
+    await image_off.handle(Event("鲸绘加混"), "scramble")
+    assert not image_off.pending
+    assert not image_off.accepts_follow(Event(images=[1]))
+    await image_off.handle(Event("鲸言加密 你好", mid="2"), "encode")
+    assert decode(image_off.api.text.call_args.args[1]) == "你好"
+    await image_off.close()
+
+
 async def test_wait_owner_expiry_replacement_and_cancel(monkeypatch):
     now = [10.0]
     monkeypatch.setattr("core.gateway.monotonic", lambda: now[0])

@@ -1,11 +1,16 @@
 """AstrBot registration and lifecycle for the whale toolbox."""
 
+from pathlib import Path
+
 from astrbot.api.event import AstrMessageEvent, filter
-from astrbot.api.star import Context, Star
+from astrbot.api.star import Context, Star, StarTools
+from astrbot.core.utils.astrbot_path import get_astrbot_temp_path
 
 from .core.adapter.astrbot import Adapter, PendingImageFilter
+from .core.adapter.tts_provider import Binding, OmniTTS
 from .core.config import Settings
 from .core.gateway import Gateway
+from .core.tts import AudioService
 
 
 class OmniKit(Star):
@@ -15,6 +20,16 @@ class OmniKit(Star):
             Settings.parse(config or {}), Adapter(context), self.logger
         )
         PendingImageFilter.gateways.add(self.gateway)
+        self.tts_binding = Binding(
+            context,
+            AudioService(
+                StarTools.get_data_dir("astrbot_plugin_omnikit"),
+                Path(get_astrbot_temp_path()),
+            ),
+            self.gateway.api,
+            self.gateway.cfg.enabled,
+        )
+        OmniTTS.binding = self.tts_binding
 
     @filter.command("鲸言")
     async def text_help(self, event: AstrMessageEvent):
@@ -49,5 +64,8 @@ class OmniKit(Star):
         await self.gateway.handle(event, "follow")
 
     async def terminate(self):
+        if OmniTTS.current_binding() is self.tts_binding:
+            OmniTTS.binding = None
+        await self.tts_binding.service.close()
         PendingImageFilter.gateways.discard(self.gateway)
         await self.gateway.close()

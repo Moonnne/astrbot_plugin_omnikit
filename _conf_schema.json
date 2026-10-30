@@ -2,6 +2,17 @@
   "enabled": {
     "description": "启用万能工具箱",
     "type": "bool",
+    "default": true,
+    "hint": "总开关；关闭后指令停用，TTS 后处理提供商透传上游音频。"
+  },
+  "text_enabled": {
+    "description": "启用鲸言文字编解码",
+    "type": "bool",
+    "default": true
+  },
+  "image_enabled": {
+    "description": "启用鲸绘图片混淆",
+    "type": "bool",
     "default": true
   },
   "alphabet": {

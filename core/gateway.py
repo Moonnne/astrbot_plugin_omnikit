@@ -47,6 +47,7 @@ class Gateway:
         return (
             not self.closed
             and self.cfg.enabled
+            and self.cfg.image_enabled
             and str(event.get_sender_id()) != str(event.get_self_id())
             and self.api.key(event) in self.pending
             and bool(self.api.images(event))
@@ -84,6 +85,9 @@ class Gateway:
 
     async def execute(self, event, action, key):
         try:
+            is_text = action in {"text_help", "encode", "decode"}
+            if not (self.cfg.text_enabled if is_text else self.cfg.image_enabled):
+                raise UserError(f"{'鲸言' if is_text else '鲸绘'}功能已关闭")
             args = self.api.arguments(event)
             if action == "text_help":
                 await self.api.text(event, self.text_help())

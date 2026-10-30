@@ -1,4 +1,4 @@
-"""Validated settings; only standard library and host dependencies are used."""
+"""Validated command settings."""
 
 import unicodedata
 from dataclasses import dataclass, field
@@ -9,6 +9,8 @@ from .text import DEFAULT_ALPHABET, validate_alphabet
 @dataclass(frozen=True)
 class Settings:
     enabled: bool = True
+    text_enabled: bool = True
+    image_enabled: bool = True
     alphabet: str = DEFAULT_ALPHABET
     presets: dict[str, str] = field(
         default_factory=lambda: {"兽音": "嗷呜啊~", "喵音": "喵呜啊~"}
@@ -45,8 +47,10 @@ class Settings:
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{key} 必须为 {low}–{high} 的整数")
             values[key] = value
-        if type(data.get("enabled", True)) is not bool:
-            raise ValueError("enabled 必须是布尔值")
+        for key in ("enabled", "text_enabled", "image_enabled"):
+            if type(data.get(key, True)) is not bool:
+                raise ValueError(f"{key} 必须是布尔值")
+            values[key] = data.get(key, True)
         presets = {}
         entries = data.get("presets", ["兽音=嗷呜啊~", "喵音=喵呜啊~"])
         if not isinstance(entries, list) or len(entries) > 64:
@@ -65,7 +69,6 @@ class Settings:
                 raise ValueError("预设名称须为两个可见字符，且不能重复")
             presets[name] = validate_alphabet(alphabet)
         return cls(
-            enabled=data.get("enabled", True),
             alphabet=validate_alphabet(data.get("alphabet", DEFAULT_ALPHABET)),
             presets=presets,
             **values,
