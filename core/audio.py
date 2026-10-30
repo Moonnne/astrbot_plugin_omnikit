@@ -25,6 +25,7 @@ PARAMETERS = {
     "f0_ceil": ("基频检测上限（Hz）", 600, 200, 1000),
 }
 NEUTRAL = {**{key: spec[1] for key, spec in PARAMETERS.items()}, "method": "harvest"}
+DEFAULT_PRESET = "GLaDOS_ZH"
 BUILTINS = {
     "NEUTRAL": NEUTRAL,
     "GLaDOS_EN": {

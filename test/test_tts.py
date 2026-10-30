@@ -19,7 +19,7 @@ from astrbot.core.provider.manager import ProviderManager
 from astrbot.core.provider.provider import TTSProvider
 from astrbot.core.provider.register import provider_cls_map
 
-from core.audio import BUILTINS, NEUTRAL, validate_params
+from core.audio import BUILTINS, DEFAULT_PRESET, NEUTRAL, validate_params
 from core.tts import AudioService, Presets
 
 if "omnikit_test_plugin" not in sys.modules:
@@ -70,7 +70,7 @@ def test_presets_atomic_shared_and_owned(tmp_path):
     with pytest.raises(ValueError, match="另一"):
         presets.save("肥鱼广播", first, "two")
     with pytest.raises(ValueError, match="内置"):
-        presets.save("GLaDOS", first, "one")
+        presets.save(DEFAULT_PRESET, first, "one")
     for name in ("../escape", "a\\b", "bad\n", " " * 3):
         with pytest.raises(ValueError):
             presets.path(name)
@@ -92,7 +92,7 @@ async def test_instance_overrides_and_preset_roundtrip(binding):
     two = provider(**{"id": "two", "音频预设": "小鱼"})
     assert one.params == two.params
     three = provider(**{"id": "three"})
-    assert three.params == BUILTINS["GLaDOS"]
+    assert three.params == BUILTINS[DEFAULT_PRESET]
     assert three.params["pitch"] != one.params["pitch"]
     with pytest.raises(ValueError):
         provider(**{"启用后处理": "yes"})
@@ -186,6 +186,82 @@ async def test_health_check_matches_host_probe(binding, tmp_path, monkeypatch):
     assert original.is_file()
 
 
+async def test_plugin_reload_replaces_existing_provider_code(
+    binding, tmp_path, monkeypatch
+):
+    from astrbot.core.provider import manager as manager_module
+
+    main = importlib.import_module("omnikit_test_plugin.main")
+    config = deepcopy(DEFAULT_CONFIG)
+    manager = ProviderManager(
+        SimpleNamespace(confs={"default": config}),
+        None,
+        SimpleNamespace(default_persona="default"),
+    )
+    monkeypatch.setattr(manager_module, "astrbot_config", config)
+    context = SimpleNamespace(
+        provider_manager=manager,
+        get_provider_by_id=manager.inst_map.get,
+    )
+    bound, _ = binding
+    bound.context = context
+    output = tmp_path / "processed.wav"
+    output.write_bytes(b"audio")
+    english = Upstream({"id": "english", "type": "test"}, {})
+    chinese = Upstream({"id": "chinese", "type": "test"}, {})
+
+    async def english_audio(text):
+        if not text.isascii():
+            raise RuntimeError("音频生成失败: No audio was received.")
+        return str(output)
+
+    english.get_audio = AsyncMock(side_effect=english_audio)
+    chinese.get_audio = AsyncMock(return_value=str(output))
+    manager.inst_map.update(english=english, chinese=chinese)
+    manager.tts_provider_insts.extend((english, chinese))
+
+    class PreviousOmniTTS(adapter.OmniTTS):
+        async def test(self):
+            await self.audio("你好，这是语音后处理测试。", strict=True)
+
+    metadata = provider_cls_map[adapter.TYPE]
+    monkeypatch.setattr(metadata, "cls_type", PreviousOmniTTS)
+    configs = [
+        {
+            **adapter.TEMPLATE,
+            "id": f"post_{name}",
+            "enable": True,
+            "上游TTS实例ID": name,
+            "音频预设": next(iter(BUILTINS)),
+        }
+        for name in ("english", "chinese")
+    ]
+    for item in configs:
+        await manager.load_provider(item)
+    previous = [manager.inst_map[item["id"]] for item in configs]
+    manager.curr_tts_provider_inst = previous[0]
+    config["provider"] = [english.provider_config, chinese.provider_config, *configs]
+    monkeypatch.setattr(metadata, "cls_type", adapter.OmniTTS)
+    plugin = main.OmniKit(context)
+    monkeypatch.setattr(
+        plugin.tts_binding.service, "process", AsyncMock(return_value=str(output))
+    )
+    try:
+        await plugin.initialize()
+        await manager.inst_map["post_english"].test()
+        english.get_audio.assert_awaited_with("hi")
+        assert all(item.closed for item in previous)
+        assert manager.curr_tts_provider_inst is manager.inst_map["post_english"]
+        assert manager.inst_map["english"] is english
+        assert manager.inst_map["chinese"] is chinese
+        for item in configs:
+            assert type(manager.inst_map[item["id"]]) is adapter.OmniTTS
+    finally:
+        for item in configs:
+            await manager.terminate_provider(item["id"])
+        await plugin.terminate()
+
+
 async def test_host_provider_manager_loads_multiple_instances(binding):
     bound, sources = binding
     manager = ProviderManager(
@@ -208,7 +284,7 @@ async def test_host_provider_manager_loads_multiple_instances(binding):
     assert len(manager.tts_provider_insts) == 2
     assert manager.inst_map["voice_one"].meta().id == "voice_one"
     assert manager.inst_map["voice_two"].meta().id == "voice_two"
-    assert bound.service.presets.load("voice_one") == BUILTINS["GLaDOS"]
+    assert bound.service.presets.load("voice_one") == BUILTINS[DEFAULT_PRESET]
     assert "source" in sources
     for config in configs:
         await manager.terminate_provider(config["id"])
@@ -226,7 +302,7 @@ async def test_host_provider_schema_exposes_template(binding):
     ][adapter.TYPE]
     assert template["provider_type"] == "text_to_speech"
     assert template["音高偏移（半音）"] == ""
-    assert template["音频预设"] == "GLaDOS"
+    assert template["音频预设"] == DEFAULT_PRESET
 
 
 @pytest.fixture
@@ -282,7 +358,7 @@ async def test_real_world_pitch_speed_and_source_preservation(tmp_path, ffmpeg, 
 async def test_real_glados_and_duration_limit(tmp_path, ffmpeg, voice):
     service = AudioService(tmp_path / "data", tmp_path / "temp")
     output = await service.process(
-        voice, BUILTINS["GLaDOS"], ffmpeg=ffmpeg, max_seconds=3, timeout=30
+        voice, BUILTINS[DEFAULT_PRESET], ffmpeg=ffmpeg, max_seconds=3, timeout=30
     )
     assert Path(output).read_bytes() != voice.read_bytes()
     with pytest.raises(ValueError, match="duration"):

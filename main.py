@@ -31,6 +31,22 @@ class OmniKit(Star):
         )
         OmniTTS.binding = self.tts_binding
 
+    async def initialize(self):
+        """Refresh provider instances retained across a plugin reload."""
+        manager = self.context.provider_manager
+        selected = manager.curr_tts_provider_inst
+        selected_id = selected.provider_config.get("id") if selected else None
+        try:
+            for instance in tuple(manager.tts_provider_insts):
+                if (
+                    getattr(instance, "omnikit_postprocessor", False)
+                    and type(instance) is not OmniTTS
+                ):
+                    await manager.reload(dict(instance.provider_config))
+        finally:
+            if selected_id in manager.inst_map:
+                manager.curr_tts_provider_inst = manager.inst_map[selected_id]
+
     @filter.command("鲸言")
     async def text_help(self, event: AstrMessageEvent):
         await self.gateway.handle(event, "text_help")

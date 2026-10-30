@@ -11,7 +11,7 @@ from astrbot.core.provider.entities import ProviderType
 from astrbot.core.provider.provider import TTSProvider
 from astrbot.core.provider.register import provider_cls_map, register_provider_adapter
 
-from ..audio import PARAMETERS, number, validate_params
+from ..audio import BUILTINS, DEFAULT_PRESET, PARAMETERS, number, validate_params
 from ..tts import AudioService
 from .astrbot import Adapter
 
@@ -23,7 +23,8 @@ TEMPLATE = {
     "enable": False,
     "hint": (
         "选择一个已启用的上游 TTS 实例 ID，再将本实例设为会话的 TTS。"
-        "后处理开关填写 true/false；关闭时透传。预设可填 GLaDOS、中性或自定义名称；"
+        "后处理开关填写 true/false；关闭时透传。"
+        f"预设可填 {'、'.join(BUILTINS)} 或自定义名称；"
         "下方留空参数继承预设，填数字则覆盖。保存预设填写新名称，"
         "该实例每次保存/重载都会同步当前效果；清空此字段停止同步。"
         "自定义预设保存在 data/plugin_data/astrbot_plugin_omnikit/tts/presets。"
@@ -31,7 +32,7 @@ TEMPLATE = {
     ),
     "上游TTS实例ID": "",
     "启用后处理": "true",
-    "音频预设": "GLaDOS",
+    "音频预设": DEFAULT_PRESET,
     "保存预设名称": "",
     **{spec[0]: "" for spec in PARAMETERS.values()},
     "基频算法": "",
@@ -76,7 +77,7 @@ class OmniTTS(TTSProvider):
             provider_config.get("处理超时（秒）", 60), "处理超时", 5, 300
         )
         self.params = binding.service.presets.load(
-            str(provider_config.get("音频预设", "GLaDOS")).strip()
+            str(provider_config.get("音频预设", DEFAULT_PRESET)).strip()
         )
         for key, (label, _, _, _) in PARAMETERS.items():
             value = provider_config.get(label, "")
